@@ -1,0 +1,91 @@
+﻿@using AidLog.Models
+@using Microsoft.Azure.Cosmos
+@using Microsoft.Azure.Cosmos.Linq
+
+@page "/"
+@rendermode InteractiveServer
+
+@inject ILogger<Home> Logger
+@inject IToastService ToastService
+
+@code {
+    [Inject(Key = "TicketsCosmosContainer")]
+    public Container? TicketsCosmosContainer { get; set; }
+
+    private bool IsLoading;
+
+    private IQueryable<Ticket>? Tickets = Array.Empty<Ticket>().AsQueryable();
+
+    private async Task LoadTickets()
+    {
+        List<Ticket> tickets = [];
+
+        var query = TicketsCosmosContainer!.GetItemLinqQueryable<Ticket>();
+        // since we are no filtering.... we can skip right into the part where we get data
+
+        var iterator = query.ToFeedIterator();
+        while (iterator.HasMoreResults) tickets.AddRange(await iterator.ReadNextAsync());
+
+        Tickets = tickets.AsQueryable();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (IsLoading) return;
+            IsLoading = true;
+
+            await LoadTickets();
+        }
+        catch (Exception err)
+        {
+            Logger.LogError(err, err.Message);
+            ToastService.ShowError(err.Message);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}
+
+<PageTitle>Tickets</PageTitle>
+<FluentStack Orientation="Orientation.Horizontal" HorizontalAlignment="HorizontalAlignment.Center">
+    <FluentStack Orientation="Orientation.Vertical" Width="50vw">
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalAlignment="HorizontalAlignment.Start" VerticalAlignment="VerticalAlignment.Center">
+            <h1>Tickets</h1>
+            <FluentSpacer />
+            <FluentAnchor Href="/new" Appearance="Appearance.Neutral" IconStart=@(new Icons.Filled.Size16.AddCircle())>
+                Add New
+            </FluentAnchor>
+        </FluentStack>
+        <FluentDataGrid Items="@Tickets" Loading="@IsLoading">
+            <EmptyContent>
+                <span>No Tickets Found</span>
+            </EmptyContent>
+            <LoadingContent>
+                <FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center">
+                    <div>Loading tickets...</div>
+                    <FluentProgressRing />
+                </FluentStack>
+            </LoadingContent>
+            <ChildContent>
+                <PropertyColumn Title="ID" Property=@(t => t.Id) Sortable=true Tooltip />
+                <PropertyColumn Title="Title" Property=@(t => t.Title) Sortable=true />
+                <PropertyColumn Title="Company ID" Property=@(t => t.CompanyId) Sortable=true />
+                <TemplateColumn Title="Notifications Enabled">
+                    @if (context.EnableNotifications)
+                    {
+                        <span>Yes</span>
+                    }
+                    else
+                    {
+                        <span>No</span>
+                    }
+                </TemplateColumn>
+                <PropertyColumn Title="Description" Property="@(t => t.Description)" Sortable="true" Tooltip />
+            </ChildContent>
+        </FluentDataGrid>
+    </FluentStack>
+</FluentStack>

@@ -1,0 +1,14 @@
+﻿@inherits LayoutComponentBase
+
+<FluentMainLayout>
+    <Header>
+        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalAlignment="HorizontalAlignment.Center">
+            <FluentIcon Value="@(new Icons.Regular.Size24.Bot())" Title="Open" Color="Color.Fill" />
+            <span>AIDLOG</span>
+        </FluentStack>
+    </Header>
+    <Body>
+        <FluentToastProvider MaxToastCount="4" @rendermode="new InteractiveServerRenderMode(false)" />
+        @Body
+    </Body>
+</FluentMainLayout>

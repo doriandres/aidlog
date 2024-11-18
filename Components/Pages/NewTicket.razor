@@ -1,0 +1,88 @@
+﻿@using AidLog.Components.Models
+@using AidLog.Models
+@using Microsoft.Azure.Cosmos
+@using System.Net
+
+@page "/new"
+
+@rendermode InteractiveServer
+
+@inject ILogger<NewTicket> Logger
+@inject IToastService ToastService
+@inject NavigationManager Navigation
+
+@code {
+    [Inject(Key = "TicketsCosmosContainer")]
+    public Container? TicketsCosmosContainer { get; set; }
+
+    [SupplyParameterFromForm]
+    private NewTicketFormModel NewTicketFormModel { get; set; } = new();
+
+    private bool IsFormSubmitting = false;
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            if (IsFormSubmitting) return;
+
+
+            IsFormSubmitting = true;
+
+            var newTicket = new Ticket
+            {
+                Id = Guid.NewGuid().ToString(),
+                CompanyId = "12345678",
+                Title = NewTicketFormModel.Title!,
+                Description = NewTicketFormModel.Description!,
+                EnableNotifications = NewTicketFormModel.EnableNotifications,
+            };
+
+            var result = await TicketsCosmosContainer!.CreateItemAsync(newTicket);
+
+            if (result.StatusCode != HttpStatusCode.Created)
+            {
+                throw new Exception($"Saving ticket failed ({(int)result.StatusCode})");
+            }
+
+            NewTicketFormModel = new(); // reset the form            
+
+            ToastService.ShowSuccess("Ticket saved successfully!");
+
+            await Task.Delay(3000);
+
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception err)
+        {
+            ToastService.ShowError(err.Message);
+        }
+        finally
+        {
+            IsFormSubmitting = false;
+        }
+    }
+}
+
+<PageTitle>New Ticket</PageTitle>
+<EditForm Model="@NewTicketFormModel" OnValidSubmit="@HandleValidSubmit" FormName="NewTicketForm" novalidate>
+    <DataAnnotationsValidator />
+    <FluentStack Orientation="Orientation.Horizontal" HorizontalAlignment="HorizontalAlignment.Center">
+        <FluentStack Orientation="Orientation.Vertical" Width="50vw">
+            <h1>New Ticket</h1>
+
+            <FluentTextField @bind-Value=NewTicketFormModel.Title Name="Title" Label="Title" Appearance=FluentInputAppearance.Filled style="width: 100%;" Required />
+            <FluentValidationMessage For=@(() => NewTicketFormModel.Title) />
+
+            <FluentTextArea @bind-Value=NewTicketFormModel.Description Name="Description" Label="Description" Appearance=FluentInputAppearance.Filled style="width: 100%;" Required Rows=5 />
+            <FluentValidationMessage For=@(() => NewTicketFormModel.Description) />
+
+            <FluentCheckbox @bind-Value=NewTicketFormModel.EnableNotifications Label="Enable Notifications" Name="EnableNotifications" />
+            <FluentValidationMessage For=@(() => NewTicketFormModel.EnableNotifications) />
+
+            <FluentButton Type=ButtonType.Submit Loading=@IsFormSubmitting Appearance=Appearance.Accent IconStart=@(new Icons.Filled.Size16.Send())>
+                Submit
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+</EditForm>
